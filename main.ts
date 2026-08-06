@@ -220,6 +220,7 @@ export default class XHSClipperPlugin extends Plugin {
 		const isVideo = this.isVideoNote(html);
 		const author = this.extractAuthor(html);
 		const postedAt = this.extractPostedAt(html);
+		const location = this.extractLocation(html);
 
 		// Build frontmatter and initial Markdown. Author and posted date are omitted rather
 		// than left blank when the note data does not carry them.
@@ -234,6 +235,9 @@ export default class XHSClipperPlugin extends Plugin {
 		}
 		if (postedAt) {
 			frontmatter.push(`posted: ${postedAt}`);
+		}
+		if (location) {
+			frontmatter.push(`location: ${this.yamlString(location)}`);
 		}
 		frontmatter.push(`date: ${noteDate}`);
 		frontmatter.push(`Imported At: ${importedAt}`);
@@ -294,7 +298,7 @@ export default class XHSClipperPlugin extends Plugin {
 			const cleanContent = content.replace(/#\S+/g, "").trim();
 			markdown += `${cleanContent.split("\n").join("\n")}\n\n`;
 
-			const tags = this.extractTags(content);
+			const tags = this.extractTags(html, content);
 			if (tags.length > 0) {
 				markdown += "```\n";
 				markdown += tags.map((tag) => `#${tag}`).join(" ") + "\n";
@@ -324,7 +328,7 @@ export default class XHSClipperPlugin extends Plugin {
 			const cleanContent = content.replace(/#[^#\s]*(?:\s+#[^#\s]*)*\s*/g, "").trim();
 			markdown += `${cleanContent.split("\n").join("\n")}\n\n`;
 
-			const tags = this.extractTags(content);
+			const tags = this.extractTags(html, content);
 			if (tags.length > 0) {
 				markdown += "```\n";
 				markdown += tags.map((tag) => `#${tag}`).join(" ") + "\n";
@@ -364,6 +368,14 @@ export default class XHSClipperPlugin extends Plugin {
 		}
 	}
 
+	// Extract the posting location Xiaohongshu shows on the note
+	extractLocation(html: string): string | null {
+		const note = this.noteData(html);
+		if (!note || typeof note.ipLocation !== "string" || note.ipLocation.length === 0) return null;
+
+		return note.ipLocation;
+	}
+
 	// Extract the author's nickname and profile link
 	extractAuthor(html: string): { name: string; url: string } | null {
 		const note = this.noteData(html);
@@ -386,8 +398,14 @@ export default class XHSClipperPlugin extends Plugin {
 		return `${date} ${pad(posted.getHours())}:${pad(posted.getMinutes())}`;
 	}
 
-	// Extract note title from HTML
+	// Extract note title, preferring the note payload over the page title tag, which carries a
+	// " - 小红书" suffix and is truncated for long titles
 	extractTitle(html: string): string {
+		const note = this.noteData(html);
+		if (note && typeof note.title === "string" && note.title.trim().length > 0) {
+			return note.title.trim();
+		}
+
 		const match = html.match(/<title>(.*?)<\/title>/);
 		return match ? match[1].replace(" - 小红书", "") : "Untitled Xiaohongshu Note";
 	}
@@ -497,10 +515,19 @@ export default class XHSClipperPlugin extends Plugin {
 		}
 	}
 
-	// Extract tags from content
-	extractTags(content: string): string[] {
+	// Extract tags, preferring the structured list. Reading them back out of the description
+	// yields "熊#", because Xiaohongshu writes topics as "#熊[话题]#" and only the leading
+	// marker is stripped.
+	extractTags(html: string, content: string): string[] {
+		const note = this.noteData(html);
+		const tagList = note && note.tagList ? note.tagList : [];
+		const names = tagList
+			.map((tag: any) => (typeof tag.name === "string" ? tag.name.trim() : ""))
+			.filter((name: string) => name.length > 0);
+		if (names.length > 0) return names;
+
 		const tagMatches = content.match(/#\S+/g) || [];
-		return tagMatches.map((tag) => tag.replace("#", "").trim());
+		return tagMatches.map((tag) => tag.replace(/#/g, "").trim()).filter((tag) => tag.length > 0);
 	}
 
 	// Plugin lifecycle: Cleanup on unload (currently empty)
