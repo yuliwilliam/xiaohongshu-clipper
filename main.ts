@@ -59,8 +59,9 @@ export default class XHSClipperPlugin extends Plugin {
 	// Extract every Xiaohongshu URL from share text, in the order they appear
 	extractURLs(shareText: string): string[] {
 		const patterns = [
-			// Mobile share links
-			/http:\/\/xhslink\.com\/a?o?\/[^\s,，]+/g,
+			// Mobile share links. The app hands out both xhslink.com and xhslink.cn, with a
+			// one- or two-letter path segment (/a/, /o/) that is not always present.
+			/https?:\/\/xhslink\.(?:com|cn)\/(?:[a-zA-Z]{1,2}\/)?[a-zA-Z0-9]+/g,
 			// Desktop/web links (both discovery/item and explore formats)
 			/https:\/\/www\.xiaohongshu\.com\/(?:discovery\/item|explore)\/[a-zA-Z0-9]+(?:\?[^\s,，]*)?/g,
 		];
