@@ -14,6 +14,9 @@ const DEFAULT_SETTINGS: XHSImporterSettings = {
 	downloadMedia: false,
 };
 
+// Pause between requests in a batch import, so a long paste doesn't hammer Xiaohongshu
+const BATCH_REQUEST_DELAY_MS = 1000;
+
 export default class XHSImporterPlugin extends Plugin {
 	settings: XHSImporterSettings;
 
@@ -22,33 +25,13 @@ export default class XHSImporterPlugin extends Plugin {
 		await this.loadSettings();
 
 		// Add ribbon icon to trigger note import
-		this.addRibbonIcon("book", "Import Xiaohongshu note", async () => {
-			const input = await this.promptForShareText();
-			if (input && input.text) {
-				const url = this.extractURL(input.text);
-				if (url) {
-					await this.importXHSNote(url, input.category, input.downloadMedia);
-				} else {
-					new Notice("No valid Xiaohongshu URL found in the text.");
-				}
-			}
-		});
+		this.addRibbonIcon("book", "Import Xiaohongshu notes", () => this.runImport());
 
 		// Add command for importing notes via command palette
 		this.addCommand({
 			id: "import",
-			name: "Import Xiaohongshu note",
-			callback: async () => {
-				const input = await this.promptForShareText();
-				if (input && input.text) {
-					const url = this.extractURL(input.text);
-					if (url) {
-						await this.importXHSNote(url, input.category, input.downloadMedia);
-					} else {
-						new Notice("No valid Xiaohongshu URL found in the text.");
-					}
-				}
-			},
+			name: "Import Xiaohongshu notes",
+			callback: () => this.runImport(),
 		});
 
 		// Register settings tab
@@ -73,23 +56,37 @@ export default class XHSImporterPlugin extends Plugin {
 		});
 	}
 
-	// Extract Xiaohongshu URL from share text
-	extractURL(shareText: string): string | null {
-		// First try to match mobile share links
-		const mobileUrlMatch = shareText.match(/http:\/\/xhslink\.com\/a?o?\/[^\s,，]+/);
-		if (mobileUrlMatch) {
-				return mobileUrlMatch[0];
+	// Extract every Xiaohongshu URL from share text, in the order they appear
+	extractURLs(shareText: string): string[] {
+		const patterns = [
+			// Mobile share links
+			/http:\/\/xhslink\.com\/a?o?\/[^\s,，]+/g,
+			// Desktop/web links (both discovery/item and explore formats)
+			/https:\/\/www\.xiaohongshu\.com\/(?:discovery\/item|explore)\/[a-zA-Z0-9]+(?:\?[^\s,，]*)?/g,
+		];
+
+		const matches: { index: number; url: string }[] = [];
+		for (const pattern of patterns) {
+			let match: RegExpExecArray | null;
+			while ((match = pattern.exec(shareText)) !== null) {
+				// Normalize explore URLs to discovery/item format
+				matches.push({ index: match.index, url: match[0].replace("/explore/", "/discovery/item/") });
+			}
 		}
-		
-		// Then try to match desktop/web links (both discovery/item and explore formats)
-		const webUrlMatch = shareText.match(/https:\/\/www\.xiaohongshu\.com\/(?:discovery\/item|explore)\/[a-zA-Z0-9]+(?:\?[^\s,，]*)?/);
-		if (webUrlMatch) {
-			// Normalize explore URLs to discovery/item format
-			return webUrlMatch[0].replace('/explore/', '/discovery/item/');
+
+		// Import in reading order rather than grouping by link type
+		matches.sort((a, b) => a.index - b.index);
+
+		const urls: string[] = [];
+		const seen = new Set<string>();
+		for (const { url } of matches) {
+			if (!seen.has(url)) {
+				seen.add(url);
+				urls.push(url);
+			}
 		}
-		
-		return null;
-}
+		return urls;
+	}
 
 	// Sanitize title for media filenames, removing emojis and special characters
 	sanitizeFilename(title: string): string {
@@ -117,23 +114,91 @@ export default class XHSImporterPlugin extends Plugin {
 		}
 	}
 
-	// Main function to import a Xiaohongshu note
-	async importXHSNote(url: string, category: string, downloadMedia: boolean) {
-		try {
-			const response = await requestUrl({ url });
-			const html = response.text;
+	// Prompt for share text and import every note it links to
+	async runImport() {
+		const input = await this.promptForShareText();
+		if (!input || !input.text) return;
 
-			// Extract note details
-			const title = this.extractTitle(html);
-			const videoUrl = this.extractVideoUrl(html);
-			const images = this.extractImages(html);
-			const content = this.extractContent(html);
-			const isVideo = this.isVideoNote(html);
+		const urls = this.extractURLs(input.text);
+		if (urls.length === 0) {
+			new Notice("No valid Xiaohongshu URL found in the text.");
+			return;
+		}
 
-			// Build frontmatter and initial Markdown
-			const noteDate = new Date().toISOString().split("T")[0];
-			const importedAt = new Date().toLocaleString();
-			let markdown = `---
+		await this.importXHSNotes(urls, input.category, input.downloadMedia);
+	}
+
+	// Import notes one at a time, then report the batch as a whole
+	async importXHSNotes(urls: string[], category: string, downloadMedia: boolean) {
+		const imported: TFile[] = [];
+		const failures: { url: string; message: string }[] = [];
+
+		for (let i = 0; i < urls.length; i++) {
+			if (urls.length > 1) {
+				new Notice(`Importing note ${i + 1} of ${urls.length}...`);
+			}
+
+			try {
+				imported.push(await this.importXHSNote(urls[i], category, downloadMedia));
+			} catch (error) {
+				console.log(`Failed to import note from ${urls[i]}: ${error.message}`);
+				failures.push({ url: urls[i], message: error.message });
+			}
+
+			if (i < urls.length - 1) {
+				await sleep(BATCH_REQUEST_DELAY_MS);
+			}
+		}
+
+		if (imported.length > 0) {
+			// Only take over the workspace for a single import; a batch would open a tab per note
+			if (urls.length === 1) {
+				await this.app.workspace.getLeaf(true).openFile(imported[0]);
+			}
+
+			// Update last used category
+			this.settings.lastCategory = category;
+			await this.saveSettings();
+		}
+
+		this.reportImportResult(imported, failures);
+	}
+
+	// Summarize a batch in one notice, keeping the reason visible for a lone failure
+	reportImportResult(imported: TFile[], failures: { url: string; message: string }[]) {
+		if (imported.length === 0 && failures.length === 1) {
+			new Notice(`Failed to import note: ${failures[0].message}`);
+			return;
+		}
+
+		const parts: string[] = [];
+		if (imported.length === 1) {
+			parts.push(`Imported Xiaohongshu note as ${imported[0].path}`);
+		} else if (imported.length > 1) {
+			parts.push(`Imported ${imported.length} Xiaohongshu notes`);
+		}
+		if (failures.length > 0) {
+			parts.push(`${failures.length} failed (see console for details)`);
+		}
+		new Notice(`${parts.join("; ")}.`);
+	}
+
+	// Main function to import a single Xiaohongshu note
+	async importXHSNote(url: string, category: string, downloadMedia: boolean): Promise<TFile> {
+		const response = await requestUrl({ url });
+		const html = response.text;
+
+		// Extract note details
+		const title = this.extractTitle(html);
+		const videoUrl = this.extractVideoUrl(html);
+		const images = this.extractImages(html);
+		const content = this.extractContent(html);
+		const isVideo = this.isVideoNote(html);
+
+		// Build frontmatter and initial Markdown
+		const noteDate = new Date().toISOString().split("T")[0];
+		const importedAt = new Date().toLocaleString();
+		let markdown = `---
 title: ${title}
 source: ${url}
 date: ${noteDate}
@@ -142,110 +207,99 @@ category: ${category}
 ---
 # ${title}\n\n`;
 
-			// Define folder structure
-			const baseFolder = this.settings.defaultFolder || "";
-			const mediaFolder = `${baseFolder}/media`;
-			const categoryFolder = category || "Uncategorized";
-			const folderPath = baseFolder ? `${baseFolder}/${categoryFolder}` : categoryFolder;
+		// Define folder structure
+		const baseFolder = this.settings.defaultFolder || "";
+		const mediaFolder = `${baseFolder}/media`;
+		const categoryFolder = category || "Uncategorized";
+		const folderPath = baseFolder ? `${baseFolder}/${categoryFolder}` : categoryFolder;
 
-			// Sanitize title for note filename (less strict)
-			let safeTitle = title.replace(/[/\\?%*:|"<>]/g, "-").trim();
-			safeTitle = safeTitle.length > 0 ? safeTitle : "Untitled";
-			safeTitle = safeTitle.substring(0, 50);
-			const filename = isVideo ? `[V]${safeTitle}` : safeTitle;
-			const filePath = `${folderPath}/${filename}.md`;
+		// Sanitize title for note filename (less strict)
+		let safeTitle = title.replace(/[/\\?%*:|"<>]/g, "-").trim();
+		safeTitle = safeTitle.length > 0 ? safeTitle : "Untitled";
+		safeTitle = safeTitle.substring(0, 50);
+		const filename = isVideo ? `[V]${safeTitle}` : safeTitle;
+		const filePath = `${folderPath}/${filename}.md`;
 
-			// Stricter sanitization for media filenames
-			const mediaSafeTitle = this.sanitizeFilename(title);
+		// Stricter sanitization for media filenames
+		const mediaSafeTitle = this.sanitizeFilename(title);
 
-			// Create folders if they don’t exist
-			if (!await this.app.vault.adapter.exists(folderPath)) {
-				await this.app.vault.createFolder(folderPath);
-			}
-			if (downloadMedia && !await this.app.vault.adapter.exists(mediaFolder)) {
-				await this.app.vault.createFolder(mediaFolder);
-			}
-
-			// Handle video notes
-			if (isVideo) {
-				if (videoUrl) {
-					let finalVideoUrl = videoUrl;
-					if (downloadMedia) {
-						const videoFilename = `${mediaSafeTitle}-${Date.now()}.mp4`;
-						const downloadedFilename = await this.downloadMediaFile(videoUrl, mediaFolder, videoFilename);
-						finalVideoUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
-					}
-					markdown += `<video controls src="${finalVideoUrl}" width="100%"></video>\n\n`;
-				} else if (images.length > 0) {
-					let finalImageUrl = images[0];
-					if (downloadMedia) {
-						const imageFilename = `${mediaSafeTitle}-0-${Date.now()}.jpg`; // Use index 0 to match later logic
-						const downloadedFilename = await this.downloadMediaFile(images[0], mediaFolder, imageFilename);
-						finalImageUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
-					}
-					markdown += `[![Cover Image](${finalImageUrl})](${url})\n\n`;
-					new Notice("Video URL not found; using cover image as fallback.");
-				}
-				const cleanContent = content.replace(/#\S+/g, "").trim();
-				markdown += `${cleanContent.split("\n").join("\n")}\n\n`;
-
-				const tags = this.extractTags(content);
-				if (tags.length > 0) {
-					markdown += "```\n";
-					markdown += tags.map((tag) => `#${tag}`).join(" ") + "\n";
-					markdown += "```\n";
-				}
-			}
-			// Handle non-video notes
-			else {
-				let downloadedImages: string[] = [];
-				if (images.length > 0) {
-					if (downloadMedia) {
-						// Download all images, including the first one (which will be used as the cover)
-						for (let i = 0; i < images.length; i++) {
-							const imageFilename = `${mediaSafeTitle}-${i}-${Date.now()}.jpg`;
-							const downloadedFilename = await this.downloadMediaFile(images[i], mediaFolder, imageFilename);
-							const finalImageUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
-							downloadedImages.push(finalImageUrl);
-						}
-					} else {
-						downloadedImages = images;
-					}
-
-					// Use the first downloaded image as the cover image (no separate download for cover)
-					markdown += `![Cover Image](${downloadedImages[0]})\n\n`;
-				}
-
-				const cleanContent = content.replace(/#[^#\s]*(?:\s+#[^#\s]*)*\s*/g, "").trim();
-				markdown += `${cleanContent.split("\n").join("\n")}\n\n`;
-
-				const tags = this.extractTags(content);
-				if (tags.length > 0) {
-					markdown += "```\n";
-					markdown += tags.map((tag) => `#${tag}`).join(" ") + "\n";
-					markdown += "```\n\n";
-				}
-
-				if (images.length > 0) {
-					// Add all images (including the first one, which is already used as the cover)
-					const imageMarkdown = downloadedImages.map((url) => `![Image](${url})`).join("\n");
-					markdown += `${imageMarkdown}\n`;
-				}
-			}
-
-			// Create and open the note
-			const file = await this.app.vault.create(filePath, markdown);
-			await this.app.workspace.getLeaf(true).openFile(file);
-
-			// Update last used category
-			this.settings.lastCategory = category;
-			await this.saveSettings();
-
-			new Notice(`Imported Xiaohongshu note as ${filePath}`);
-		} catch (error) {
-			console.log(`Failed to import note from ${url}: ${error.message}`);
-			new Notice(`Failed to import note: ${error.message}`);
+		// Create folders if they don’t exist
+		if (!await this.app.vault.adapter.exists(folderPath)) {
+			await this.app.vault.createFolder(folderPath);
 		}
+		if (downloadMedia && !await this.app.vault.adapter.exists(mediaFolder)) {
+			await this.app.vault.createFolder(mediaFolder);
+		}
+
+		// Handle video notes
+		if (isVideo) {
+			if (videoUrl) {
+				let finalVideoUrl = videoUrl;
+				if (downloadMedia) {
+					const videoFilename = `${mediaSafeTitle}-${Date.now()}.mp4`;
+					const downloadedFilename = await this.downloadMediaFile(videoUrl, mediaFolder, videoFilename);
+					finalVideoUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
+				}
+				markdown += `<video controls src="${finalVideoUrl}" width="100%"></video>\n\n`;
+			} else if (images.length > 0) {
+				let finalImageUrl = images[0];
+				if (downloadMedia) {
+					const imageFilename = `${mediaSafeTitle}-0-${Date.now()}.jpg`; // Use index 0 to match later logic
+					const downloadedFilename = await this.downloadMediaFile(images[0], mediaFolder, imageFilename);
+					finalImageUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
+				}
+				markdown += `[![Cover Image](${finalImageUrl})](${url})\n\n`;
+				new Notice("Video URL not found; using cover image as fallback.");
+			}
+			const cleanContent = content.replace(/#\S+/g, "").trim();
+			markdown += `${cleanContent.split("\n").join("\n")}\n\n`;
+
+			const tags = this.extractTags(content);
+			if (tags.length > 0) {
+				markdown += "```\n";
+				markdown += tags.map((tag) => `#${tag}`).join(" ") + "\n";
+				markdown += "```\n";
+			}
+		}
+		// Handle non-video notes
+		else {
+			let downloadedImages: string[] = [];
+			if (images.length > 0) {
+				if (downloadMedia) {
+					// Download all images, including the first one (which will be used as the cover)
+					for (let i = 0; i < images.length; i++) {
+						const imageFilename = `${mediaSafeTitle}-${i}-${Date.now()}.jpg`;
+						const downloadedFilename = await this.downloadMediaFile(images[i], mediaFolder, imageFilename);
+						const finalImageUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
+						downloadedImages.push(finalImageUrl);
+					}
+				} else {
+					downloadedImages = images;
+				}
+
+				// Use the first downloaded image as the cover image (no separate download for cover)
+				markdown += `![Cover Image](${downloadedImages[0]})\n\n`;
+			}
+
+			const cleanContent = content.replace(/#[^#\s]*(?:\s+#[^#\s]*)*\s*/g, "").trim();
+			markdown += `${cleanContent.split("\n").join("\n")}\n\n`;
+
+			const tags = this.extractTags(content);
+			if (tags.length > 0) {
+				markdown += "```\n";
+				markdown += tags.map((tag) => `#${tag}`).join(" ") + "\n";
+				markdown += "```\n\n";
+			}
+
+			if (images.length > 0) {
+				// Add all images (including the first one, which is already used as the cover)
+				const imageMarkdown = downloadedImages.map((url) => `![Image](${url})`).join("\n");
+				markdown += `${imageMarkdown}\n`;
+			}
+		}
+
+		// Create the note; opening it is left to the caller
+		return await this.app.vault.create(filePath, markdown);
 	}
 
 	// Extract note title from HTML
@@ -495,11 +549,11 @@ class XHSInputModal extends Modal {
 		// Apply CSS class to modal content
 		contentEl.addClass("xhs-modal-content");
 
-		contentEl.createEl("h2", { text: "Import Xiaohongshu note" });
+		contentEl.createEl("h2", { text: "Import Xiaohongshu notes" });
 
 		// Share text input
 		const textRow = contentEl.createEl("div", { cls: "xhs-modal-row" });
-		textRow.createEl("p", { text: "Paste the share text below:" });
+		textRow.createEl("p", { text: "Paste one or more share links below. Every link found is imported into the selected category." });
 		const input = textRow.createEl("textarea", {
 			cls: "xhs-modal-textarea",
 			attr: { placeholder: "e.g., 64 不叫小黄了发布了一篇小红书笔记..." },
