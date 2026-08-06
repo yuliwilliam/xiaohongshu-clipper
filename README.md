@@ -181,6 +181,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 ## Acknowledgments
 
+- Almost all of this plugin is the work of [bnchiang96](https://github.com/bnchiang96), who wrote the original [Xiaohongshu Importer](https://github.com/bnchiang96/xiaohongshu-importer). It remains MIT licensed under their copyright.
 - Thanks to the Obsidian community for their support and feedback during the plugin’s development, including the community PR fixing the XHS URL bug.
 - Built with the Obsidian API and inspired by the community’s plugin guidelines.
 
@@ -365,5 +366,6 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 ## 致谢
 
+- 本插件的绝大部分代码出自 [bnchiang96](https://github.com/bnchiang96) 之手，即原项目 [Xiaohongshu Importer](https://github.com/bnchiang96/xiaohongshu-importer)，仍以 MIT 许可证在其版权下分发。
 - 感谢 Obsidian 社区在插件开发过程中提供的支持和反馈，包括修复 XHS URL 错误的社区 PR。
 - 使用 Obsidian API 构建，并受到社区插件指南的启发。

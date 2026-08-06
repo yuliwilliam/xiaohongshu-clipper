@@ -4,7 +4,7 @@
 	"version": "0.0.5",
 	"minAppVersion": "0.15.0",
 	"description": "Import Xiaohongshu (小红书) notes with media and categorization.",
-	"author": "bnchiang96",
-	"authorUrl": "https://github.com/bnchiang96",
+	"author": "yuliwilliam",
+	"authorUrl": "https://github.com/yuliwilliam/xiaohongshu-clipper",
 	"isDesktopOnly": false
 }
