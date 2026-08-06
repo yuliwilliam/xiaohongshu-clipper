@@ -218,18 +218,28 @@ export default class XHSClipperPlugin extends Plugin {
 		const images = this.extractImages(html);
 		const content = this.extractContent(html);
 		const isVideo = this.isVideoNote(html);
+		const author = this.extractAuthor(html);
+		const postedAt = this.extractPostedAt(html);
 
-		// Build frontmatter and initial Markdown
+		// Build frontmatter and initial Markdown. Author and posted date are omitted rather
+		// than left blank when the note data does not carry them.
 		const noteDate = new Date().toISOString().split("T")[0];
 		const importedAt = new Date().toLocaleString();
-		let markdown = `---
-title: ${title}
-source: ${url}
-date: ${noteDate}
-Imported At: ${importedAt}
-category: ${category}
----
-# ${title}\n\n`;
+		const frontmatter = [`title: ${this.yamlString(title)}`, `source: ${url}`];
+		if (author) {
+			frontmatter.push(`author: ${this.yamlString(author.name)}`);
+			if (author.url) {
+				frontmatter.push(`author_url: ${author.url}`);
+			}
+		}
+		if (postedAt) {
+			frontmatter.push(`posted: ${postedAt}`);
+		}
+		frontmatter.push(`date: ${noteDate}`);
+		frontmatter.push(`Imported At: ${importedAt}`);
+		frontmatter.push(`category: ${this.yamlString(category)}`);
+
+		let markdown = `---\n${frontmatter.join("\n")}\n---\n# ${title}\n\n`;
 
 		// Define folder structure
 		const baseFolder = this.settings.defaultFolder || "";
@@ -330,6 +340,50 @@ category: ${category}
 
 		// Create the note; opening it is left to the caller
 		return await this.app.vault.create(filePath, markdown);
+	}
+
+	// Note titles and nicknames routinely contain colons, quotes and leading emoji, any of
+	// which breaks an unquoted frontmatter value and takes the whole block with it.
+	yamlString(value: string): string {
+		const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\s+/g, " ").trim();
+		return `"${escaped}"`;
+	}
+
+	// Parse the note payload Xiaohongshu embeds in the page
+	noteData(html: string): any | null {
+		const stateMatch = html.match(/window\.__INITIAL_STATE__=(.*?)<\/script>/s);
+		if (!stateMatch) return null;
+
+		try {
+			const state = JSON.parse(stateMatch[1].trim().replace(/undefined/g, "null"));
+			const noteId = Object.keys(state.note.noteDetailMap)[0];
+			return state.note.noteDetailMap[noteId].note;
+		} catch (e) {
+			console.log(`Failed to parse note data: ${e.message}`);
+			return null;
+		}
+	}
+
+	// Extract the author's nickname and profile link
+	extractAuthor(html: string): { name: string; url: string } | null {
+		const note = this.noteData(html);
+		if (!note || !note.user || !note.user.nickname) return null;
+
+		return {
+			name: note.user.nickname,
+			url: note.user.userId ? `https://www.xiaohongshu.com/user/profile/${note.user.userId}` : "",
+		};
+	}
+
+	// Extract when the note was published, as a local date and time
+	extractPostedAt(html: string): string | null {
+		const note = this.noteData(html);
+		if (!note || typeof note.time !== "number") return null;
+
+		const posted = new Date(note.time);
+		const pad = (value: number) => (value < 10 ? `0${value}` : `${value}`);
+		const date = `${posted.getFullYear()}-${pad(posted.getMonth() + 1)}-${pad(posted.getDate())}`;
+		return `${date} ${pad(posted.getHours())}:${pad(posted.getMinutes())}`;
 	}
 
 	// Extract note title from HTML
