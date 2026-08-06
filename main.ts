@@ -1,13 +1,13 @@
 import { Plugin, Notice, Modal, requestUrl, PluginSettingTab, App, Setting, WorkspaceLeaf, TFile } from "obsidian";
 
-interface XHSImporterSettings {
+interface XHSClipperSettings {
 	defaultFolder: string;
 	categories: string[]; // User-defined categories, excluding "其他"
 	lastCategory: string;
 	downloadMedia: boolean;
 }
 
-const DEFAULT_SETTINGS: XHSImporterSettings = {
+const DEFAULT_SETTINGS: XHSClipperSettings = {
 	defaultFolder: "XHS Notes",
 	categories: ["美食", "旅行", "娱乐", "知识", "工作", "情感", "个人成长", "优惠", "搞笑", "育儿"], // Removed "Others"
 	lastCategory: "",
@@ -17,8 +17,8 @@ const DEFAULT_SETTINGS: XHSImporterSettings = {
 // Pause between requests in a batch import, so a long paste doesn't hammer Xiaohongshu
 const BATCH_REQUEST_DELAY_MS = 1000;
 
-export default class XHSImporterPlugin extends Plugin {
-	settings: XHSImporterSettings;
+export default class XHSClipperPlugin extends Plugin {
+	settings: XHSClipperSettings;
 
 	// Plugin lifecycle: Load settings and register UI/command elements
 	async onload() {
@@ -35,7 +35,7 @@ export default class XHSImporterPlugin extends Plugin {
 		});
 
 		// Register settings tab
-		this.addSettingTab(new XHSImporterSettingTab(this.app, this));
+		this.addSettingTab(new XHSClipperSettingTab(this.app, this));
 	}
 
 	// Load plugin settings from storage
@@ -414,10 +414,10 @@ category: ${category}
 	onunload() {}
 }
 
-class XHSImporterSettingTab extends PluginSettingTab {
-	plugin: XHSImporterPlugin;
+class XHSClipperSettingTab extends PluginSettingTab {
+	plugin: XHSClipperPlugin;
 
-	constructor(app: App, plugin: XHSImporterPlugin) {
+	constructor(app: App, plugin: XHSClipperPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -530,11 +530,11 @@ class XHSImporterSettingTab extends PluginSettingTab {
 class XHSInputModal extends Modal {
 	result: { text: string | null; category: string; downloadMedia: boolean } | null = null;
 	onSubmit: (result: { text: string | null; category: string; downloadMedia: boolean } | null) => void;
-	settings: XHSImporterSettings;
+	settings: XHSClipperSettings;
 	selectedCategory: string;
 	downloadMedia: boolean;
 
-	constructor(app: App, settings: XHSImporterSettings, onSubmit: (result: { text: string | null; category: string; downloadMedia: boolean } | null) => void) {
+	constructor(app: App, settings: XHSClipperSettings, onSubmit: (result: { text: string | null; category: string; downloadMedia: boolean } | null) => void) {
 		super(app);
 		this.settings = settings;
 		this.onSubmit = onSubmit;

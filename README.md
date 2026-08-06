@@ -1,21 +1,29 @@
-# Xiaohongshu Importer for Obsidian
+# Xiaohongshu Clipper for Obsidian
 
-**Version**: 1.1.3  
-**Author**: bnchiang96  
-**Repository**: [https://github.com/bnchiang96/xiaohongshu-importer](https://github.com/bnchiang96/xiaohongshu-importer)  
+**Version**: 0.0.1  
+**Repository**: [https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **License**: MIT
+
+A fork of [Xiaohongshu Importer](https://github.com/bnchiang96/xiaohongshu-importer) by bnchiang96, which appears to be no longer maintained. It uses the plugin id `xiaohongshu-clipper`, so it installs alongside the marketplace build rather than over it.
 
 **[中文版本](#chinese-readme)** (Scroll to the Chinese version)
 
+## Network use
+
+This plugin reads note pages directly from `xiaohongshu.com`. Importing a note fetches its public web page and parses the data Xiaohongshu embeds in it — there is no official API involved, and no request is signed or authenticated. If you enable media download, images and videos are additionally fetched from Xiaohongshu's CDN hosts. Nothing is sent anywhere else, and the plugin collects no telemetry.
+
+Because the plugin depends on the page structure Xiaohongshu serves to anonymous visitors, imports can break without warning if that changes.
+
 ## Overview
 
-The Xiaohongshu Importer plugin allows you to seamlessly import notes from Xiaohongshu (小红书), a popular Chinese social media and e-commerce platform, into your Obsidian vault. With this plugin, you can extract note content, images, videos, and tags, and organize them into categorized Markdown files in your vault. Whether you’re saving travel tips, recipes, or lifestyle inspiration, this plugin makes it easy to bring your Xiaohongshu notes into Obsidian for better organization and note-taking.
+The Xiaohongshu Clipper plugin allows you to seamlessly import notes from Xiaohongshu (小红书), a popular Chinese social media and e-commerce platform, into your Obsidian vault. With this plugin, you can extract note content, images, videos, and tags, and organize them into categorized Markdown files in your vault. Whether you’re saving travel tips, recipes, or lifestyle inspiration, this plugin makes it easy to bring your Xiaohongshu notes into Obsidian for better organization and note-taking.
 
 The plugin supports multiple Xiaohongshu link formats, including newer `explore` URLs, which are automatically normalized to the standard item format during import.
 
 ## Features
 
 - **Import Xiaohongshu Notes**: Import notes by pasting a share link or share text (supports both `discovery/item` and `explore` URLs), including title, content, images, videos, and tags.
+- **Batch Import**: Paste several links at once. Every link found is imported, in the order it appears in the text, and one failed note does not abort the rest.
 - **Category Management**: Organize notes into user-defined categories (e.g., "Travel", "Food") or a default "Others" category.
 - **Media Download**: Optionally download images and videos locally to your vault, or embed them using their original URLs.
 - **Custom Folder Structure**: Save notes in a structured folder hierarchy (e.g., `XHS Notes/Travel/NoteTitle.md`).
@@ -24,55 +32,52 @@ The plugin supports multiple Xiaohongshu link formats, including newer `explore`
 
 ## Installation
 
-### Option 1: Install via Obsidian Community Plugins Marketplace (Recommended)
+This fork is not in the Obsidian Community Plugins marketplace, so install it with BRAT or by hand.
 
-The Xiaohongshu Importer plugin is now available in the Obsidian Community Plugins marketplace, making installation quick and easy.
+### Option 1: Install via BRAT (Recommended)
 
-1. Open Obsidian.
-2. Go to **Settings > Community Plugins**.
-3. If you haven’t already, turn on community plugins by clicking **Turn on community plugins** and confirming.
-4. Click **Browse** to open the community plugins marketplace.
-5. In the search bar, type **Xiaohongshu Importer**.
-6. Find the plugin in the search results and click **Install**.
-7. Once installed, click **Enable** to activate the plugin.
-8. You’re ready to start importing Xiaohongshu notes!
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) installs plugins straight from a GitHub repository and keeps them updated.
+
+1. Install **Obsidian42 - BRAT** from the community plugins marketplace and enable it.
+2. Go to **Settings > BRAT > Add beta plugin**.
+3. Enter `yuliwilliam/xiaohongshu-clipper` and confirm.
+4. Go to **Settings > Community Plugins**, find **Xiaohongshu Clipper**, and enable it.
 
 ### Option 2: Manual Installation
 
-If you prefer to install the plugin manually or need a specific version, you can download the release files and install them directly.
-
-1. Download the latest release ZIP file from the GitHub releases page: [Xiaohongshu-Importer-v1.1.3.zip](https://github.com/bnchiang96/xiaohongshu-importer/releases/download/1.1.3/Xiaohongshu-Importer-v1.1.3.zip).
-2. Extract the ZIP file to obtain `main.js`, `manifest.json`, and `styles.css`.
-3. Copy these files to your Obsidian vault’s plugins directory:
-   - On desktop: `<vault>/.obsidian/plugins/xiaohongshu-importer/`
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/yuliwilliam/xiaohongshu-clipper/releases/latest).
+2. Copy the three files into your Obsidian vault’s plugins directory:
+   - On desktop: `<vault>/.obsidian/plugins/xiaohongshu-clipper/`
    - On mobile: You may need to use a file manager to copy the files to the same directory.
-4. Open Obsidian and go to **Settings > Community Plugins**.
-5. Ensure community plugins are enabled.
-6. Under **Installed Plugins**, find **Xiaohongshu Importer** and click the toggle to enable it.
-7. The plugin is now ready to use.
+3. Open Obsidian and go to **Settings > Community Plugins**.
+4. Ensure community plugins are enabled.
+5. Under **Installed Plugins**, find **Xiaohongshu Clipper** and click the toggle to enable it.
+6. The plugin is now ready to use.
 
 ## Usage
 
-### Importing a Xiaohongshu Note
+### Importing Xiaohongshu Notes
 
 1. **Trigger the Import**:
-   - Click the Xiaohongshu Importer ribbon icon (a book icon) on the left sidebar, or
-   - Use the command palette: Press `Ctrl/Cmd + P`, type "Import Xiaohongshu note", and select the command.
+   - Click the Xiaohongshu Clipper ribbon icon (a book icon) on the left sidebar, or
+   - Use the command palette: Press `Ctrl/Cmd + P`, type "Import Xiaohongshu notes", and select the command.
 2. **Enter Share Text**:
    - A modal will appear. Paste the Xiaohongshu share text or URL (e.g., "64 不叫小黄了发布了一篇小红书笔记... http://xhslink.com/a/..." or links in the `explore` format).
+   - You can paste several links at once, separated by newlines, spaces, or commas. Every link found is imported into the category you pick, in the order it appears in the text. Duplicates are skipped.
 3. **Select a Category**:
    - Choose a category for the note (e.g., "Travel", "Food") or select "Others" (其他).
 4. **Choose Media Download Option**:
    - Check the "Download media locally for this import" box if you want to download images and videos to your vault. Leave it unchecked to embed media using their original URLs.
-5. **Import the Note**:
-   - Click **Import** or press `Enter` (without Shift) to start the import process.
-6. **View the Note**:
-   - The plugin will create a Markdown file in your vault (e.g., `XHS Notes/Travel/NoteTitle.md`) and open it automatically.
-   - A notice will confirm the import: "Imported Xiaohongshu note as XHS Notes/Travel/NoteTitle.md".
+5. **Import the Notes**:
+   - Click **Import** or press `Enter` (without Shift) to start the import process. Use `Shift + Enter` for a newline.
+6. **View the Notes**:
+   - The plugin creates a Markdown file per note in your vault (e.g., `XHS Notes/Travel/NoteTitle.md`).
+   - A single import opens the note automatically and confirms with "Imported Xiaohongshu note as XHS Notes/Travel/NoteTitle.md".
+   - A batch shows progress as it goes and finishes with a summary, such as "Imported 5 Xiaohongshu notes; 2 failed (see console for details)". A note that fails does not stop the ones after it.
 
 ### Configuring the Plugin
 
-1. Go to **Settings > Community Plugins > Xiaohongshu Importer**.
+1. Go to **Settings > Community Plugins > Xiaohongshu Clipper**.
 2. **Default Folder**:
    - Set the base folder where notes will be saved (e.g., `XHS Notes`). Leave empty to save notes at the vault root.
 3. **Download Media**:
@@ -113,12 +118,12 @@ If you prefer to install the plugin manually or need a specific version, you can
 
 ## Contributing
 
-Contributions are welcome! If you’d like to contribute to the Xiaohongshu Importer plugin, please follow these steps:
+Contributions are welcome! If you’d like to contribute to the Xiaohongshu Clipper plugin, please follow these steps:
 
-1. Fork the repository: [https://github.com/bnchiang96/xiaohongshu-importer](https://github.com/bnchiang96/xiaohongshu-importer).
+1. Fork the repository: [https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper).
 2. Clone your fork and create a new branch:
    ```bash
-   git clone https://github.com/your-username/xiaohongshu-importer.git
+   git clone https://github.com/your-username/xiaohongshu-clipper.git
    git checkout -b feature/your-feature-name
    ```
 3. Make your changes and test them in Obsidian.
@@ -151,7 +156,7 @@ To develop or modify the plugin, you’ll need the following:
 	  yarn build
 	  ```
 - **Test the Plugin**:
-	- Copy the built files (`main.js`, `manifest.json`, `styles.css`) to your Obsidian vault’s plugins directory: `<vault>/.obsidian/plugins/xiaohongshu-importer/`.
+	- Copy the built files (`main.js`, `manifest.json`, `styles.css`) to your Obsidian vault’s plugins directory: `<vault>/.obsidian/plugins/xiaohongshu-clipper/`.
 	- Enable the plugin in Obsidian and test your changes.
 
 ## License
@@ -165,20 +170,28 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 ---
 
-# 小红书导入器 for Obsidian <a id="chinese-readme"></a>
+# 小红书剪藏 for Obsidian <a id="chinese-readme"></a>
 
-**版本**：1.1.3  
-**作者**：bnchiang96  
-**代码仓库**：[https://github.com/bnchiang96/xiaohongshu-importer](https://github.com/bnchiang96/xiaohongshu-importer)  
+**版本**：0.0.1  
+**代码仓库**：[https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **许可证**：MIT
+
+本项目 fork 自 bnchiang96 的 [Xiaohongshu Importer](https://github.com/bnchiang96/xiaohongshu-importer)，原项目目前似乎已停止维护。插件 id 改为 `xiaohongshu-clipper`，因此可以与商店版并存，不会互相覆盖。
+
+## 联网说明
+
+本插件直接从 `xiaohongshu.com` 读取笔记页面。导入一篇笔记时，会抓取该笔记的公开网页并解析小红书内嵌在页面中的数据——不经过任何官方 API，请求也不带签名或身份认证。如果启用了媒体下载，还会额外从小红书的 CDN 抓取图片和视频。除此之外不向任何地方发送数据，插件不收集任何遥测信息。
+
+由于依赖的是小红书返回给匿名访客的页面结构，一旦对方改动，导入可能随时失效。
 
 ## 概述
 
-小红书导入器插件让您可以轻松地将小红书（一个广受欢迎的中国社交媒体和电商平台）上的笔记导入到您的 Obsidian 知识库中。通过此插件，您可以提取笔记的标题、内容、图片、视频和标签，并将它们整理成分类的 Markdown 文件存储在您的知识库中。无论是保存旅行攻略、食谱还是生活灵感，这个插件都能帮助您将小红书笔记导入 Obsidian，以便更好地组织和管理。
+小红书剪藏插件让您可以轻松地将小红书（一个广受欢迎的中国社交媒体和电商平台）上的笔记导入到您的 Obsidian 知识库中。通过此插件，您可以提取笔记的标题、内容、图片、视频和标签，并将它们整理成分类的 Markdown 文件存储在您的知识库中。无论是保存旅行攻略、食谱还是生活灵感，这个插件都能帮助您将小红书笔记导入 Obsidian，以便更好地组织和管理。
 
 ## 功能
 
 - **导入小红书笔记**：通过粘贴分享链接或分享文本，导入笔记，包括标题、内容、图片、视频和标签。
+- **批量导入**：一次可粘贴多条链接，按其在文本中出现的顺序逐条导入，其中一条失败不会中断后面的。
 - **分类管理**：将笔记组织到用户自定义的分类中（例如“旅行”、“美食”），或使用默认的“其他”分类。
 - **媒体下载**：可选择将图片和视频下载到本地知识库，或使用原始 URL 嵌入媒体。
 - **自定义文件夹结构**：将笔记保存到结构化的文件夹层次中（例如 `XHS Notes/Travel/NoteTitle.md`）。
@@ -187,55 +200,52 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 ## 安装
 
-### 选项 1：通过 Obsidian 社区插件市场安装（推荐）
+本 fork 未上架 Obsidian 社区插件市场，请通过 BRAT 或手动安装。
 
-小红书导入器插件现已在 Obsidian 社区插件市场中提供，安装过程简单快捷。
+### 选项 1：通过 BRAT 安装（推荐）
 
-1. 打开 Obsidian。
-2. 前往 **设置 > 社区插件**。
-3. 如果尚未启用社区插件，点击 **启用社区插件** 并确认。
-4. 点击 **浏览** 打开社区插件市场。
-5. 在搜索栏中输入 **Xiaohongshu Importer**。
-6. 在搜索结果中找到插件并点击 **安装**。
-7. 安装完成后，点击 **启用** 以激活插件。
-8. 您现在可以开始导入小红书笔记了！
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) 可以直接从 GitHub 仓库安装插件并保持更新。
+
+1. 在社区插件市场中安装 **Obsidian42 - BRAT** 并启用。
+2. 前往 **设置 > BRAT > Add beta plugin**。
+3. 填入 `yuliwilliam/xiaohongshu-clipper` 并确认。
+4. 前往 **设置 > 社区插件**，找到 **Xiaohongshu Clipper** 并启用。
 
 ### 选项 2：手动安装
 
-如果您更喜欢手动安装插件或需要特定版本，可以直接下载发布文件并安装。
-
-1. 从 GitHub 发布页面下载最新的发布 ZIP 文件：[Xiaohongshu-Importer-v1.1.3.zip](https://github.com/bnchiang96/xiaohongshu-importer/releases/download/1.1.3/Xiaohongshu-Importer-v1.1.3.zip)。
-2. 解压 ZIP 文件，获取 `main.js`、`manifest.json` 和 `styles.css`。
-3. 将这些文件复制到您的 Obsidian 知识库的插件目录：
-	- 桌面端：`<vault>/.obsidian/plugins/xiaohongshu-importer/`
+1. 从 [最新 release](https://github.com/yuliwilliam/xiaohongshu-clipper/releases/latest) 下载 `main.js`、`manifest.json` 和 `styles.css`。
+2. 将这三个文件复制到您的 Obsidian 知识库的插件目录：
+	- 桌面端：`<vault>/.obsidian/plugins/xiaohongshu-clipper/`
 	- 移动端：您可能需要使用文件管理器将文件复制到相同目录。
-4. 打开 Obsidian，前往 **设置 > 社区插件**。
-5. 确保社区插件已启用。
-6. 在 **已安装的插件** 下，找到 **Xiaohongshu Importer** 并点击开关启用。
-7. 插件现已准备好使用。
+3. 打开 Obsidian，前往 **设置 > 社区插件**。
+4. 确保社区插件已启用。
+5. 在 **已安装的插件** 下，找到 **Xiaohongshu Clipper** 并点击开关启用。
+6. 插件现已准备好使用。
 
 ## 使用方法
 
 ### 导入小红书笔记
 
 1. **触发导入**：
-	- 点击左侧边栏上的小红书导入器图标（书本图标），或
-	- 使用命令面板：按 `Ctrl/Cmd + P`，输入“导入小红书笔记”，然后选择该命令。
+	- 点击左侧边栏上的小红书剪藏图标（书本图标），或
+	- 使用命令面板：按 `Ctrl/Cmd + P`，输入 "Import Xiaohongshu notes"，然后选择该命令。
 2. **输入分享文本**：
 	- 将弹出一个窗口。粘贴小红书分享文本或 URL（例如，“64 不叫小黄了发布了一篇小红书笔记... http://xhslink.com/a/...”）。
+	- 可以一次粘贴多条链接，用换行、空格或逗号分隔。所有识别到的链接都会导入到你选择的分类下，顺序与其在文本中出现的顺序一致，重复的会自动跳过。
 3. **选择分类**：
 	- 为笔记选择一个分类（例如“旅行”、“美食”），或选择“其他”。
 4. **选择媒体下载选项**：
 	- 如果您希望将图片和视频下载到知识库中，请勾选“为此导入本地下载媒体”。如果不勾选，媒体将使用原始 URL 嵌入。
 5. **导入笔记**：
-	- 点击 **导入** 或按 `Enter` 键（不按 Shift）以开始导入过程。
+	- 点击 **导入** 或按 `Enter` 键（不按 Shift）以开始导入过程。需要换行请按 `Shift + Enter`。
 6. **查看笔记**：
-	- 插件将在您的知识库中创建一个 Markdown 文件（例如 `XHS Notes/Travel/NoteTitle.md`）并自动打开。
-	- 通知将确认导入：“已将小红书笔记导入为 XHS Notes/Travel/NoteTitle.md”。
+	- 插件会为每篇笔记在知识库中创建一个 Markdown 文件（例如 `XHS Notes/Travel/NoteTitle.md`）。
+	- 单条导入会自动打开该笔记，并提示 "Imported Xiaohongshu note as XHS Notes/Travel/NoteTitle.md"。
+	- 批量导入会显示进度，结束时给出汇总，例如 "Imported 5 Xiaohongshu notes; 2 failed (see console for details)"。其中一条失败不会影响后面的。
 
 ### 配置插件
 
-1. 前往 **设置 > 社区插件 > Xiaohongshu Importer**。
+1. 前往 **设置 > 社区插件 > Xiaohongshu Clipper**。
 2. **默认文件夹**：
 	- 设置笔记保存的默认基础文件夹（例如 `XHS Notes`）。留空则保存到知识库根目录。
 3. **下载媒体**：
@@ -276,12 +286,12 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 ## 贡献
 
-欢迎贡献！如果您想为小红书导入器插件做出贡献，请按照以下步骤操作：
+欢迎贡献！如果您想为小红书剪藏插件做出贡献，请按照以下步骤操作：
 
-1. Fork 代码仓库：[https://github.com/bnchiang96/xiaohongshu-importer](https://github.com/bnchiang96/xiaohongshu-importer)。
+1. Fork 代码仓库：[https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)。
 2. 克隆您的 fork 并创建一个新分支：
    ```bash
-   git clone https://github.com/your-username/xiaohongshu-importer.git
+   git clone https://github.com/your-username/xiaohongshu-clipper.git
    git checkout -b feature/your-feature-name
    ```
 3. 进行更改并在 Obsidian 中测试。
@@ -314,7 +324,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 	  yarn build
 	  ```
 - **测试插件**：
-	- 将构建的文件（`main.js`、`manifest.json`、`styles.css`）复制到您的 Obsidian 知识库的插件目录：`<vault>/.obsidian/plugins/xiaohongshu-importer/`。
+	- 将构建的文件（`main.js`、`manifest.json`、`styles.css`）复制到您的 Obsidian 知识库的插件目录：`<vault>/.obsidian/plugins/xiaohongshu-clipper/`。
 	- 在 Obsidian 中启用插件并测试您的更改。
 
 ## 许可证
