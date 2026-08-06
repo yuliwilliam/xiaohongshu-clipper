@@ -1,6 +1,6 @@
 # Xiaohongshu Clipper for Obsidian
 
-**Version**: 0.0.5  
+**Version**: 0.0.6  
 **Repository**: [https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **License**: MIT
 
@@ -189,7 +189,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 # 小红书剪藏 for Obsidian <a id="chinese-readme"></a>
 
-**版本**：0.0.5  
+**版本**：0.0.6  
 **代码仓库**：[https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **许可证**：MIT
 
