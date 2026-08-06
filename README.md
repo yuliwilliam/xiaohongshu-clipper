@@ -1,6 +1,6 @@
 # Xiaohongshu Clipper for Obsidian
 
-**Version**: 0.0.8  
+**Version**: 0.0.9  
 **Repository**: [https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **License**: MIT
 
@@ -27,6 +27,7 @@ The plugin supports multiple Xiaohongshu link formats, including newer `explore`
 - **Import Xiaohongshu Notes**: Import notes by pasting a share link or share text (supports both `discovery/item` and `explore` URLs), including title, content, images, videos, and tags.
 - **Batch Import**: Paste several links at once. Every link found is imported, in the order it appears in the text. One failed note does not abort the rest, and a note already in the vault is skipped rather than re-imported.
 - **Metadata**: Records the author, their profile link, the publish date, and the posting location in the note's frontmatter.
+- **Live Photos**: A live photo keeps its motion clip, rendered as a looping muted video with the still as its poster.
 - **Durable Media Links**: The image and video urls embedded in a Xiaohongshu page are signed and expire within days. Images are referenced by their CDN file id and videos by their unsigned backup url instead, so notes keep working even without downloading media.
 - **Category Management**: Organize notes into user-defined categories (e.g., "Travel", "Food") or a default "Others" category.
 - **Media Download**: Optionally download images and videos locally to your vault, or embed them using durable URLs.
@@ -217,7 +218,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 # 小红书剪藏 for Obsidian <a id="chinese-readme"></a>
 
-**版本**：0.0.8  
+**版本**：0.0.9  
 **代码仓库**：[https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **许可证**：MIT
 
@@ -240,6 +241,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 - **导入小红书笔记**：通过粘贴分享链接或分享文本，导入笔记，包括标题、内容、图片、视频和标签。
 - **批量导入**：一次可粘贴多条链接，按其在文本中出现的顺序逐条导入。其中一条失败不会中断后面的，已存在于知识库的笔记会跳过而非重复导入。
 - **元数据**：在笔记的 frontmatter 中记录作者、作者主页链接、发布时间和 IP 归属地。
+- **Live Photo**：实况照片会保留动态片段，渲染为循环静音播放的视频，静帧作为封面。
 - **媒体链接不过期**：小红书页面里内嵌的图片和视频 URL 都带签名，数天后失效。插件改用图片的 CDN file id、视频的无签名 backup URL 来构造引用，因此即使不下载媒体，笔记里的图片和视频也不会失效。
 - **分类管理**：将笔记组织到用户自定义的分类中（例如“旅行”、“美食”），或使用默认的“其他”分类。
 - **媒体下载**：可选择将图片和视频下载到本地知识库，或使用不过期的 URL 嵌入媒体。
