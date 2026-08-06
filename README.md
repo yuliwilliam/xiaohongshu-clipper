@@ -1,6 +1,6 @@
 # Xiaohongshu Clipper for Obsidian
 
-**Version**: 0.0.7  
+**Version**: 0.0.8  
 **Repository**: [https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **License**: MIT
 
@@ -31,7 +31,7 @@ The plugin supports multiple Xiaohongshu link formats, including newer `explore`
 - **Category Management**: Organize notes into user-defined categories (e.g., "Travel", "Food") or a default "Others" category.
 - **Media Download**: Optionally download images and videos locally to your vault, or embed them using durable URLs.
 - **Custom Folder Structure**: Save notes in a structured folder hierarchy (e.g., `XHS Notes/Travel/NoteTitle.md`).
-- **User-Friendly Interface**: Use a modal to input share text, select categories, and choose media download options.
+- **User-Friendly Interface**: Use a modal to input share text, select categories, and choose media download options, or skip it entirely with the clipboard command or a `obsidian://xhs-clip` shortcut from your phone.
 - **Settings Customization**: Configure the default folder, media download preference, and manage categories in the settings tab.
 
 ## Installation
@@ -78,6 +78,32 @@ This fork is not in the Obsidian Community Plugins marketplace, so install it wi
    - The plugin creates a Markdown file per note in your vault (e.g., `XHS Notes/Travel/NoteTitle.md`).
    - A single import opens the note automatically and confirms with "Imported Xiaohongshu note as XHS Notes/Travel/NoteTitle.md".
    - A batch shows progress as it goes and finishes with a summary, such as "Imported 5 Xiaohongshu notes; 1 already in the vault; 2 failed (see console for details)". A note that fails does not stop the ones after it, and a note already in the vault is skipped before any media is fetched.
+
+### Importing Without the Modal
+
+Two paths skip the modal entirely. Both import into the category you last used, with the "Download media" setting from the settings tab, so there is nothing to answer.
+
+**From the clipboard.** Run the **Import Xiaohongshu notes from clipboard** command. Obsidian does not let plugins claim a hotkey, so assign one yourself under **Settings > Hotkeys** if you want this on a keystroke. Copy a share text in the Xiaohongshu app, switch to Obsidian, press the key.
+
+**From your phone's share sheet.** The plugin answers `obsidian://xhs-clip`, so a shortcut can hand a link over directly:
+
+| Parameter | |
+| --- | --- |
+| `url` | A Xiaohongshu link. |
+| `text` | A whole share message; every link in it is imported. Use this if you are passing the share text through unmodified. |
+| `category` | Optional. Overrides the last used category, so you can build one shortcut per category. |
+
+On **iOS**, in the Shortcuts app:
+
+1. Create a new shortcut. In its details, turn on **Show in Share Sheet** and accept **Text** and **URLs**.
+2. Add **URL Encode**, set it to *Encode*, with **Shortcut Input** as its input.
+3. Add a **Text** action containing `obsidian://xhs-clip?text=` followed by the encoded result.
+4. Add **Open URLs**, taking that text.
+5. Name it something like "Clip to Obsidian".
+
+Then in Xiaohongshu: **Share > Copy link**, or share straight into the shortcut, and Obsidian opens and imports.
+
+On **Android**, any app that can fire a custom URL scheme from the share menu (URL Forwarder, HTTP Shortcuts, Tasker) works the same way — build `obsidian://xhs-clip?text=<url-encoded share text>`.
 
 ### Configuring the Plugin
 
@@ -191,7 +217,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 # 小红书剪藏 for Obsidian <a id="chinese-readme"></a>
 
-**版本**：0.0.7  
+**版本**：0.0.8  
 **代码仓库**：[https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **许可证**：MIT
 
@@ -218,7 +244,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 - **分类管理**：将笔记组织到用户自定义的分类中（例如“旅行”、“美食”），或使用默认的“其他”分类。
 - **媒体下载**：可选择将图片和视频下载到本地知识库，或使用不过期的 URL 嵌入媒体。
 - **自定义文件夹结构**：将笔记保存到结构化的文件夹层次中（例如 `XHS Notes/Travel/NoteTitle.md`）。
-- **用户友好的界面**：通过弹窗输入分享文本、选择分类和媒体下载选项。
+- **用户友好的界面**：通过弹窗输入分享文本、选择分类和媒体下载选项；也可以用剪贴板命令或手机上的 `obsidian://xhs-clip` 快捷指令完全跳过弹窗。
 - **设置自定义**：在设置页面中配置默认文件夹、媒体下载偏好和分类管理。
 
 ## 安装
@@ -265,6 +291,32 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 	- 插件会为每篇笔记在知识库中创建一个 Markdown 文件（例如 `XHS Notes/Travel/NoteTitle.md`）。
 	- 单条导入会自动打开该笔记，并提示 "Imported Xiaohongshu note as XHS Notes/Travel/NoteTitle.md"。
 	- 批量导入会显示进度，结束时给出汇总，例如 "Imported 5 Xiaohongshu notes; 1 already in the vault; 2 failed (see console for details)"。其中一条失败不会影响后面的；已存在的笔记会在抓取媒体之前就跳过。
+
+### 不弹窗的导入方式
+
+有两条路径可以完全跳过弹窗。两者都导入到你上次使用的分类，并采用设置页里的「下载媒体」默认值，因此全程无需选择。
+
+**从剪贴板导入。** 执行命令 **Import Xiaohongshu notes from clipboard**。Obsidian 不允许插件自行占用快捷键，需要的话请在 **设置 > 快捷键** 中自行绑定。在小红书 App 里复制分享文案，切回 Obsidian 按一下即可。
+
+**从手机分享菜单导入。** 插件注册了 `obsidian://xhs-clip`，快捷指令可以把链接直接递过来：
+
+| 参数 | |
+| --- | --- |
+| `url` | 一条小红书链接。 |
+| `text` | 整段分享文案，其中所有链接都会被导入。原样透传分享文案时用这个。 |
+| `category` | 可选。覆盖上次使用的分类，可以为每个分类各建一个快捷指令。 |
+
+**iOS** 在「快捷指令」App 中：
+
+1. 新建快捷指令，在详情里开启 **在共享表单中显示**，接受类型勾选 **文本** 和 **URL**。
+2. 添加 **URL 编码** 操作，模式选 *编码*，输入设为 **快捷指令输入**。
+3. 添加 **文本** 操作，内容为 `obsidian://xhs-clip?text=` 加上一步的编码结果。
+4. 添加 **打开 URL**，输入为上一步的文本。
+5. 命名为「剪藏到 Obsidian」之类。
+
+之后在小红书里 **分享 > 复制链接**，或直接分享给该快捷指令，Obsidian 会自动打开并导入。
+
+**Android** 上任何能从分享菜单触发自定义 URL scheme 的工具（URL Forwarder、HTTP Shortcuts、Tasker）都同理——构造 `obsidian://xhs-clip?text=<URL 编码后的分享文案>` 即可。
 
 ### 配置插件
 

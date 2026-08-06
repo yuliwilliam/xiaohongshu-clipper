@@ -1,4 +1,4 @@
-import { Plugin, Notice, Modal, requestUrl, PluginSettingTab, App, Setting, WorkspaceLeaf, TFile } from "obsidian";
+import { Plugin, Notice, Modal, requestUrl, PluginSettingTab, App, Setting, WorkspaceLeaf, TFile, ObsidianProtocolData } from "obsidian";
 
 interface XHSClipperSettings {
 	defaultFolder: string;
@@ -26,6 +26,15 @@ const IMAGE_CDN_BASE = "https://sns-img-qc.xhscdn.com";
 // a single photo. This is the same downscale Xiaohongshu's own web page requests.
 const IMAGE_VARIANT_SUFFIX = "!nd_dft_wlteh_jpg_3";
 
+// The category an import starts from when nobody picks one: the last one used, as long as it
+// still exists in the settings.
+function preselectedCategory(settings: XHSClipperSettings): string {
+	if (settings.lastCategory && settings.categories.includes(settings.lastCategory)) {
+		return settings.lastCategory;
+	}
+	return settings.categories[0] || "其他";
+}
+
 export default class XHSClipperPlugin extends Plugin {
 	settings: XHSClipperSettings;
 
@@ -42,6 +51,17 @@ export default class XHSClipperPlugin extends Plugin {
 			name: "Import Xiaohongshu notes",
 			callback: () => this.runImport(),
 		});
+
+		// Skips the modal, for binding to a hotkey
+		this.addCommand({
+			id: "import-from-clipboard",
+			name: "Import Xiaohongshu notes from clipboard",
+			callback: () => this.runClipboardImport(),
+		});
+
+		// Lets a phone's share sheet hand a link straight over, via a shortcut that opens
+		// obsidian://xhs-clip?url=...
+		this.registerObsidianProtocolHandler("xhs-clip", (params) => this.runProtocolImport(params));
 
 		// Register settings tab
 		this.addSettingTab(new XHSClipperSettingTab(this.app, this));
@@ -136,6 +156,44 @@ export default class XHSClipperPlugin extends Plugin {
 		}
 
 		await this.importXHSNotes(urls, input.category, input.downloadMedia);
+	}
+
+	// Import share text without asking anything, for the paths where a prompt would be in the
+	// way. Falls back to the category and download setting the modal would have started from.
+	async importShareText(shareText: string, category?: string) {
+		const urls = this.extractURLs(shareText);
+		if (urls.length === 0) {
+			new Notice("No valid Xiaohongshu URL found in the text.");
+			return;
+		}
+
+		await this.importXHSNotes(urls, category || preselectedCategory(this.settings), this.settings.downloadMedia);
+	}
+
+	// Import whatever links are on the clipboard
+	async runClipboardImport() {
+		let shareText: string;
+		try {
+			shareText = await navigator.clipboard.readText();
+		} catch (error) {
+			console.log(`Failed to read the clipboard: ${error.message}`);
+			new Notice("Could not read the clipboard.");
+			return;
+		}
+
+		await this.importShareText(shareText);
+	}
+
+	// Handle obsidian://xhs-clip?url=... The link may also arrive as text=, holding a whole
+	// share message, and an optional category= overrides the last one used.
+	async runProtocolImport(params: ObsidianProtocolData) {
+		const shareText = params.url || params.text || "";
+		if (!shareText) {
+			new Notice("No Xiaohongshu link was shared.");
+			return;
+		}
+
+		await this.importShareText(shareText, params.category);
 	}
 
 	// Import notes one at a time, then report the batch as a whole
@@ -696,9 +754,7 @@ class XHSInputModal extends Modal {
 		super(app);
 		this.settings = settings;
 		this.onSubmit = onSubmit;
-		this.selectedCategory = this.settings.lastCategory && this.settings.categories.includes(this.settings.lastCategory)
-			? this.settings.lastCategory
-			: this.settings.categories[0] || "其他";
+		this.selectedCategory = preselectedCategory(settings);
 		this.downloadMedia = this.settings.downloadMedia;
 	}
 
