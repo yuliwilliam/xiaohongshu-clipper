@@ -26,6 +26,16 @@ const IMAGE_CDN_BASE = "https://sns-img-qc.xhscdn.com";
 // a single photo. This is the same downscale Xiaohongshu's own web page requests.
 const IMAGE_VARIANT_SUFFIX = "!nd_dft_wlteh_jpg_3";
 
+// Encodings a stream may be published in, h264 first for the widest playback support
+const STREAM_CODECS = ["h264", "h265", "h266", "av1"];
+
+// One entry of a note's image list. Xiaohongshu live photos pair the still with a short
+// motion clip, carried in the same stream shape a video note uses.
+interface XHSImage {
+	url: string;
+	videoUrl: string | null;
+}
+
 // The category an import starts from when nobody picks one: the last one used, as long as it
 // still exists in the settings.
 function preselectedCategory(settings: XHSClipperSettings): string {
@@ -142,6 +152,21 @@ export default class XHSClipperPlugin extends Plugin {
 			new Notice(`Failed to download media: ${error.message}`);
 			return url; // Fallback to original URL
 		}
+	}
+
+	// Download a file and return what the note should reference: a vault-relative path, or the
+	// original url when the download did not work out
+	async saveMedia(url: string, mediaFolder: string, filename: string): Promise<string> {
+		const saved = await this.downloadMediaFile(url, mediaFolder, filename);
+		return saved.startsWith("http") ? saved : `../media/${saved}`;
+	}
+
+	// A live photo becomes its motion clip with the still as the poster frame, so the note
+	// shows the same thing Xiaohongshu does
+	imageMarkdown(image: XHSImage): string {
+		if (!image.videoUrl) return `![Image](${image.url})`;
+
+		return `<video controls loop muted poster="${image.url}" src="${image.videoUrl}" width="100%"></video>`;
 	}
 
 	// Prompt for share text and import every note it links to
@@ -349,20 +374,14 @@ export default class XHSClipperPlugin extends Plugin {
 		// Handle video notes
 		if (isVideo) {
 			if (videoUrl) {
-				let finalVideoUrl = videoUrl;
-				if (downloadMedia) {
-					const videoFilename = `${mediaSafeTitle}-${Date.now()}.mp4`;
-					const downloadedFilename = await this.downloadMediaFile(videoUrl, mediaFolder, videoFilename);
-					finalVideoUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
-				}
+				const finalVideoUrl = downloadMedia
+					? await this.saveMedia(videoUrl, mediaFolder, `${mediaSafeTitle}-${Date.now()}.mp4`)
+					: videoUrl;
 				markdown += `<video controls src="${finalVideoUrl}" width="100%"></video>\n\n`;
 			} else if (images.length > 0) {
-				let finalImageUrl = images[0];
-				if (downloadMedia) {
-					const imageFilename = `${mediaSafeTitle}-0-${Date.now()}.jpg`; // Use index 0 to match later logic
-					const downloadedFilename = await this.downloadMediaFile(images[0], mediaFolder, imageFilename);
-					finalImageUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
-				}
+				const finalImageUrl = downloadMedia
+					? await this.saveMedia(images[0].url, mediaFolder, `${mediaSafeTitle}-0-${Date.now()}.jpg`)
+					: images[0].url;
 				markdown += `[![Cover Image](${finalImageUrl})](${url})\n\n`;
 				new Notice("Video URL not found; using cover image as fallback.");
 			}
@@ -378,22 +397,24 @@ export default class XHSClipperPlugin extends Plugin {
 		}
 		// Handle non-video notes
 		else {
-			let downloadedImages: string[] = [];
-			if (images.length > 0) {
-				if (downloadMedia) {
-					// Download all images, including the first one (which will be used as the cover)
-					for (let i = 0; i < images.length; i++) {
-						const imageFilename = `${mediaSafeTitle}-${i}-${Date.now()}.jpg`;
-						const downloadedFilename = await this.downloadMediaFile(images[i], mediaFolder, imageFilename);
-						const finalImageUrl = downloadedFilename.startsWith("http") ? downloadedFilename : `../media/${downloadedFilename}`;
-						downloadedImages.push(finalImageUrl);
-					}
-				} else {
-					downloadedImages = images;
-				}
+			// Resolve every image to what the note will reference, downloading first if asked.
+			// A live photo brings its motion clip along.
+			const resolved: XHSImage[] = [];
+			for (let i = 0; i < images.length; i++) {
+				const stamp = Date.now();
+				resolved.push({
+					url: downloadMedia
+						? await this.saveMedia(images[i].url, mediaFolder, `${mediaSafeTitle}-${i}-${stamp}.jpg`)
+						: images[i].url,
+					videoUrl: images[i].videoUrl && downloadMedia
+						? await this.saveMedia(images[i].videoUrl as string, mediaFolder, `${mediaSafeTitle}-${i}-${stamp}.mp4`)
+						: images[i].videoUrl,
+				});
+			}
 
-				// Use the first downloaded image as the cover image (no separate download for cover)
-				markdown += `![Cover Image](${downloadedImages[0]})\n\n`;
+			if (resolved.length > 0) {
+				// The still doubles as the cover, so a live photo does not autoplay at the top
+				markdown += `![Cover Image](${resolved[0].url})\n\n`;
 			}
 
 			const cleanContent = content.replace(/#[^#\s]*(?:\s+#[^#\s]*)*\s*/g, "").trim();
@@ -406,10 +427,9 @@ export default class XHSClipperPlugin extends Plugin {
 				markdown += "```\n\n";
 			}
 
-			if (images.length > 0) {
+			if (resolved.length > 0) {
 				// Add all images (including the first one, which is already used as the cover)
-				const imageMarkdown = downloadedImages.map((url) => `![Image](${url})`).join("\n");
-				markdown += `${imageMarkdown}\n`;
+				markdown += `${resolved.map((image) => this.imageMarkdown(image)).join("\n")}\n`;
 			}
 		}
 
@@ -514,24 +534,22 @@ export default class XHSClipperPlugin extends Plugin {
 		return image.urlDefault || "";
 	}
 
-	// Extract image URLs from note data
-	extractImages(html: string): string[] {
-		const stateMatch = html.match(/window\.__INITIAL_STATE__=(.*?)<\/script>/s);
-		if (!stateMatch) return [];
+	// The motion clip of a live photo, or null for an ordinary still
+	livePhotoUrl(image: any): string | null {
+		if (!image.livePhoto) return null;
 
-		try {
-			const jsonStr = stateMatch[1].trim();
-			const cleanedJson = jsonStr.replace(/undefined/g, "null");
-			const state = JSON.parse(cleanedJson);
-			const noteId = Object.keys(state.note.noteDetailMap)[0];
-			const imageList = state.note.noteDetailMap[noteId].note.imageList || [];
-			return imageList
-				.map((img: any) => this.imageUrl(img))
-				.filter((url: string) => url && url.startsWith("http"));
-		} catch (e) {
-			console.log(`Failed to parse images: ${e.message}`);
-			return [];
-		}
+		return this.pickStreamUrl(image.stream);
+	}
+
+	// Extract the note's images, each with its motion clip when it is a live photo
+	extractImages(html: string): XHSImage[] {
+		const note = this.noteData(html);
+		if (!note) return [];
+
+		const imageList = note.imageList || [];
+		return imageList
+			.map((image: any) => ({ url: this.imageUrl(image), videoUrl: this.livePhotoUrl(image) }))
+			.filter((image: XHSImage) => image.url && image.url.startsWith("http"));
 	}
 
 	// Pick a playback url for one encoding of a stream. masterUrl carries a signature that
@@ -545,13 +563,12 @@ export default class XHSClipperPlugin extends Plugin {
 		return encoding.masterUrl || null;
 	}
 
-	// Extract video URL from note data, h264 first for the widest playback support
-	extractVideoUrl(html: string): string | null {
-		const note = this.noteData(html);
-		if (!note || !note.video || !note.video.media || !note.video.media.stream) return null;
+	// Pick a playback url out of a stream. Video notes and the motion clip of a live photo
+	// both use this shape.
+	pickStreamUrl(stream: any): string | null {
+		if (!stream) return null;
 
-		const stream = note.video.media.stream;
-		for (const codec of ["h264", "h265", "h266", "av1"]) {
+		for (const codec of STREAM_CODECS) {
 			const encodings = stream[codec];
 			if (!Array.isArray(encodings)) continue;
 
@@ -561,6 +578,14 @@ export default class XHSClipperPlugin extends Plugin {
 			}
 		}
 		return null;
+	}
+
+	// Extract video URL from note data
+	extractVideoUrl(html: string): string | null {
+		const note = this.noteData(html);
+		if (!note || !note.video || !note.video.media) return null;
+
+		return this.pickStreamUrl(note.video.media.stream);
 	}
 
 	// Extract note content from HTML or JSON
