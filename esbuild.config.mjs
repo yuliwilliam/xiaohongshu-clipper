@@ -4,9 +4,8 @@ import {builtinModules} from "module";
 
 const banner =
 	`/*
- * Xiaohongshu Importer plugin
- * Author: bnchiang96
- * Version: 1.1.2
+ * Xiaohongshu Clipper plugin
+ * Fork of Xiaohongshu Importer by bnchiang96
  */
 `;
 
