@@ -1,6 +1,6 @@
 # Xiaohongshu Clipper for Obsidian
 
-**Version**: 0.0.6  
+**Version**: 0.0.7  
 **Repository**: [https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **License**: MIT
 
@@ -27,7 +27,7 @@ The plugin supports multiple Xiaohongshu link formats, including newer `explore`
 - **Import Xiaohongshu Notes**: Import notes by pasting a share link or share text (supports both `discovery/item` and `explore` URLs), including title, content, images, videos, and tags.
 - **Batch Import**: Paste several links at once. Every link found is imported, in the order it appears in the text. One failed note does not abort the rest, and a note already in the vault is skipped rather than re-imported.
 - **Metadata**: Records the author, their profile link, the publish date, and the posting location in the note's frontmatter.
-- **Durable Image Links**: The image urls embedded in a Xiaohongshu page expire within about a day. Images are referenced by their CDN file id instead, so notes keep working even without downloading media.
+- **Durable Media Links**: The image and video urls embedded in a Xiaohongshu page are signed and expire within days. Images are referenced by their CDN file id and videos by their unsigned backup url instead, so notes keep working even without downloading media.
 - **Category Management**: Organize notes into user-defined categories (e.g., "Travel", "Food") or a default "Others" category.
 - **Media Download**: Optionally download images and videos locally to your vault, or embed them using durable URLs.
 - **Custom Folder Structure**: Save notes in a structured folder hierarchy (e.g., `XHS Notes/Travel/NoteTitle.md`).
@@ -101,6 +101,7 @@ This fork is not in the Obsidian Community Plugins marketplace, so install it wi
   ---
   title: "🐻夏天看熊吃三文鱼愿望达成！"
   source: http://xhslink.cn/o/AQX2ka4QaBc
+  note_id: 6a4f3e0d000000001603c839
   author: "ingridchu"
   author_url: https://www.xiaohongshu.com/user/profile/58a7a81582ec391b58364e64
   posted: 2026-07-08 23:22
@@ -110,6 +111,7 @@ This fork is not in the Obsidian Community Plugins marketplace, so install it wi
   category: "旅行"
   ---
   ```
+  - `note_id` is Xiaohongshu's own id for the note. It is what the plugin checks to decide a note has already been imported, so it survives you renaming the file or the author retitling the note. Removing it makes the note importable again.
   - `posted` is when the note was published, in local time. `date` and `Imported At` record when you imported it.
   - `location` is the posting location Xiaohongshu shows on the note.
   - `author`, `author_url`, `posted` and `location` are omitted when the note data does not carry them.
@@ -189,7 +191,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 # 小红书剪藏 for Obsidian <a id="chinese-readme"></a>
 
-**版本**：0.0.6  
+**版本**：0.0.7  
 **代码仓库**：[https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **许可证**：MIT
 
@@ -212,7 +214,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 - **导入小红书笔记**：通过粘贴分享链接或分享文本，导入笔记，包括标题、内容、图片、视频和标签。
 - **批量导入**：一次可粘贴多条链接，按其在文本中出现的顺序逐条导入。其中一条失败不会中断后面的，已存在于知识库的笔记会跳过而非重复导入。
 - **元数据**：在笔记的 frontmatter 中记录作者、作者主页链接、发布时间和 IP 归属地。
-- **图片链接不过期**：小红书页面里内嵌的图片 URL 约一天后失效。插件改用图片的 CDN file id 构造引用，因此即使不下载媒体，笔记里的图片也不会变成裂图。
+- **媒体链接不过期**：小红书页面里内嵌的图片和视频 URL 都带签名，数天后失效。插件改用图片的 CDN file id、视频的无签名 backup URL 来构造引用，因此即使不下载媒体，笔记里的图片和视频也不会失效。
 - **分类管理**：将笔记组织到用户自定义的分类中（例如“旅行”、“美食”），或使用默认的“其他”分类。
 - **媒体下载**：可选择将图片和视频下载到本地知识库，或使用不过期的 URL 嵌入媒体。
 - **自定义文件夹结构**：将笔记保存到结构化的文件夹层次中（例如 `XHS Notes/Travel/NoteTitle.md`）。
@@ -286,6 +288,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
   ---
   title: "🐻夏天看熊吃三文鱼愿望达成！"
   source: http://xhslink.cn/o/AQX2ka4QaBc
+  note_id: 6a4f3e0d000000001603c839
   author: "ingridchu"
   author_url: https://www.xiaohongshu.com/user/profile/58a7a81582ec391b58364e64
   posted: 2026-07-08 23:22
@@ -295,6 +298,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
   category: "旅行"
   ---
   ```
+  - `note_id` 是小红书自己的笔记 ID。插件靠它判断某篇笔记是否已导入，因此你重命名文件、或作者改了标题都不会影响判重。删掉这一行该笔记就能重新导入。
   - `posted` 是笔记的发布时间（本地时区）；`date` 和 `Imported At` 记录的是你导入的时间。
   - `location` 是小红书在笔记上显示的 IP 归属地。
   - `author`、`author_url`、`posted`、`location` 在笔记数据中缺失时会整行省略。
