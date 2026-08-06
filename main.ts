@@ -17,6 +17,15 @@ const DEFAULT_SETTINGS: XHSClipperSettings = {
 // Pause between requests in a batch import, so a long paste doesn't hammer Xiaohongshu
 const BATCH_REQUEST_DELAY_MS = 1000;
 
+// The urls Xiaohongshu embeds in a note page carry an expiry timestamp and a signature, and
+// stop resolving within about a day. Every image also has a file id that addresses it on the
+// CDN directly, with no expiry, so image references are rebuilt from that instead.
+const IMAGE_CDN_BASE = "https://sns-img-qc.xhscdn.com";
+
+// Without a suffix the CDN returns the untouched original, which reaches tens of megabytes for
+// a single photo. This is the same downscale Xiaohongshu's own web page requests.
+const IMAGE_VARIANT_SUFFIX = "!nd_dft_wlteh_jpg_3";
+
 export default class XHSClipperPlugin extends Plugin {
 	settings: XHSClipperSettings;
 
@@ -132,6 +141,7 @@ export default class XHSClipperPlugin extends Plugin {
 	// Import notes one at a time, then report the batch as a whole
 	async importXHSNotes(urls: string[], category: string, downloadMedia: boolean) {
 		const imported: TFile[] = [];
+		const skipped: string[] = [];
 		const failures: { url: string; message: string }[] = [];
 
 		for (let i = 0; i < urls.length; i++) {
@@ -140,7 +150,12 @@ export default class XHSClipperPlugin extends Plugin {
 			}
 
 			try {
-				imported.push(await this.importXHSNote(urls[i], category, downloadMedia));
+				const file = await this.importXHSNote(urls[i], category, downloadMedia);
+				if (file) {
+					imported.push(file);
+				} else {
+					skipped.push(urls[i]);
+				}
 			} catch (error) {
 				console.log(`Failed to import note from ${urls[i]}: ${error.message}`);
 				failures.push({ url: urls[i], message: error.message });
@@ -162,13 +177,17 @@ export default class XHSClipperPlugin extends Plugin {
 			await this.saveSettings();
 		}
 
-		this.reportImportResult(imported, failures);
+		this.reportImportResult(imported, skipped, failures);
 	}
 
-	// Summarize a batch in one notice, keeping the reason visible for a lone failure
-	reportImportResult(imported: TFile[], failures: { url: string; message: string }[]) {
-		if (imported.length === 0 && failures.length === 1) {
+	// Summarize a batch in one notice, keeping the outcome legible for a single import
+	reportImportResult(imported: TFile[], skipped: string[], failures: { url: string; message: string }[]) {
+		if (imported.length === 0 && skipped.length === 0 && failures.length === 1) {
 			new Notice(`Failed to import note: ${failures[0].message}`);
+			return;
+		}
+		if (imported.length === 0 && skipped.length === 1 && failures.length === 0) {
+			new Notice("Note is already in the vault; skipped.");
 			return;
 		}
 
@@ -178,14 +197,18 @@ export default class XHSClipperPlugin extends Plugin {
 		} else if (imported.length > 1) {
 			parts.push(`Imported ${imported.length} Xiaohongshu notes`);
 		}
+		if (skipped.length > 0) {
+			parts.push(`${skipped.length} already in the vault`);
+		}
 		if (failures.length > 0) {
 			parts.push(`${failures.length} failed (see console for details)`);
 		}
 		new Notice(`${parts.join("; ")}.`);
 	}
 
-	// Main function to import a single Xiaohongshu note
-	async importXHSNote(url: string, category: string, downloadMedia: boolean): Promise<TFile> {
+	// Main function to import a single Xiaohongshu note. Returns null when a note with the
+	// same title is already in the vault.
+	async importXHSNote(url: string, category: string, downloadMedia: boolean): Promise<TFile | null> {
 		const response = await requestUrl({ url });
 		const html = response.text;
 
@@ -220,6 +243,12 @@ category: ${category}
 		safeTitle = safeTitle.substring(0, 50);
 		const filename = isVideo ? `[V]${safeTitle}` : safeTitle;
 		const filePath = `${folderPath}/${filename}.md`;
+
+		// Leave an already imported note alone. Checked before any media is fetched, so
+		// re-importing a batch costs one page request per note and nothing else.
+		if (await this.app.vault.adapter.exists(filePath)) {
+			return null;
+		}
 
 		// Stricter sanitization for media filenames
 		const mediaSafeTitle = this.sanitizeFilename(title);
@@ -309,6 +338,15 @@ category: ${category}
 		return match ? match[1].replace(" - 小红书", "") : "Untitled Xiaohongshu Note";
 	}
 
+	// Build a non-expiring reference to an image, falling back to the signed url when the
+	// note data carries no file id
+	imageUrl(image: any): string {
+		if (typeof image.fileId === "string" && image.fileId.length > 0) {
+			return `${IMAGE_CDN_BASE}/${image.fileId}${IMAGE_VARIANT_SUFFIX}`;
+		}
+		return image.urlDefault || "";
+	}
+
 	// Extract image URLs from note data
 	extractImages(html: string): string[] {
 		const stateMatch = html.match(/window\.__INITIAL_STATE__=(.*?)<\/script>/s);
@@ -321,7 +359,7 @@ category: ${category}
 			const noteId = Object.keys(state.note.noteDetailMap)[0];
 			const imageList = state.note.noteDetailMap[noteId].note.imageList || [];
 			return imageList
-				.map((img: any) => img.urlDefault || "")
+				.map((img: any) => this.imageUrl(img))
 				.filter((url: string) => url && url.startsWith("http"));
 		} catch (e) {
 			console.log(`Failed to parse images: ${e.message}`);
