@@ -144,13 +144,17 @@ export default class XHSClipperPlugin extends Plugin {
 		const skipped: string[] = [];
 		const failures: { url: string; message: string }[] = [];
 
+		// Read once for the whole batch. importXHSNote adds to it as notes are created, so a
+		// paste holding both the short and the long link to one note only imports it once.
+		const knownNoteIds = this.existingNoteIds();
+
 		for (let i = 0; i < urls.length; i++) {
 			if (urls.length > 1) {
 				new Notice(`Importing note ${i + 1} of ${urls.length}...`);
 			}
 
 			try {
-				const file = await this.importXHSNote(urls[i], category, downloadMedia);
+				const file = await this.importXHSNote(urls[i], category, downloadMedia, knownNoteIds);
 				if (file) {
 					imported.push(file);
 				} else {
@@ -206,11 +210,17 @@ export default class XHSClipperPlugin extends Plugin {
 		new Notice(`${parts.join("; ")}.`);
 	}
 
-	// Main function to import a single Xiaohongshu note. Returns null when a note with the
-	// same title is already in the vault.
-	async importXHSNote(url: string, category: string, downloadMedia: boolean): Promise<TFile | null> {
+	// Main function to import a single Xiaohongshu note. Returns null when the note is
+	// already in the vault.
+	async importXHSNote(url: string, category: string, downloadMedia: boolean, knownNoteIds: Set<string>): Promise<TFile | null> {
 		const response = await requestUrl({ url });
 		const html = response.text;
+
+		// Xiaohongshu's own id identifies the note regardless of what it is filed as here
+		const noteId = this.extractNoteId(html);
+		if (noteId && knownNoteIds.has(noteId)) {
+			return null;
+		}
 
 		// Extract note details
 		const title = this.extractTitle(html);
@@ -227,6 +237,9 @@ export default class XHSClipperPlugin extends Plugin {
 		const noteDate = new Date().toISOString().split("T")[0];
 		const importedAt = new Date().toLocaleString();
 		const frontmatter = [`title: ${this.yamlString(title)}`, `source: ${url}`];
+		if (noteId) {
+			frontmatter.push(`note_id: ${noteId}`);
+		}
 		if (author) {
 			frontmatter.push(`author: ${this.yamlString(author.name)}`);
 			if (author.url) {
@@ -343,7 +356,11 @@ export default class XHSClipperPlugin extends Plugin {
 		}
 
 		// Create the note; opening it is left to the caller
-		return await this.app.vault.create(filePath, markdown);
+		const file = await this.app.vault.create(filePath, markdown);
+		if (noteId) {
+			knownNoteIds.add(noteId);
+		}
+		return file;
 	}
 
 	// Note titles and nicknames routinely contain colons, quotes and leading emoji, any of
@@ -366,6 +383,26 @@ export default class XHSClipperPlugin extends Plugin {
 			console.log(`Failed to parse note data: ${e.message}`);
 			return null;
 		}
+	}
+
+	// Extract Xiaohongshu's own id for the note, which survives the author editing the title
+	extractNoteId(html: string): string | null {
+		const note = this.noteData(html);
+		if (!note || typeof note.noteId !== "string" || note.noteId.length === 0) return null;
+
+		return note.noteId;
+	}
+
+	// Collect the note ids already recorded in the vault, so the same note is not imported
+	// twice under a title the author has since changed
+	existingNoteIds(): Set<string> {
+		const ids = new Set<string>();
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			const id = cache && cache.frontmatter ? cache.frontmatter.note_id : null;
+			if (typeof id === "string" && id.length > 0) ids.add(id);
+		}
+		return ids;
 	}
 
 	// Extract the posting location Xiaohongshu shows on the note
@@ -439,32 +476,33 @@ export default class XHSClipperPlugin extends Plugin {
 		}
 	}
 
-	// Extract video URL from note data
-	extractVideoUrl(html: string): string | null {
-		const stateMatch = html.match(/window\.__INITIAL_STATE__=(.*?)<\/script>/s);
-		if (!stateMatch) return null;
-
-		try {
-			const jsonStr = stateMatch[1].trim();
-			const cleanedJson = jsonStr.replace(/undefined/g, "null");
-			const state = JSON.parse(cleanedJson);
-			const noteId = Object.keys(state.note.noteDetailMap)[0];
-			const noteData = state.note.noteDetailMap[noteId].note;
-			const videoInfo = noteData.video;
-
-			if (!videoInfo || !videoInfo.media || !videoInfo.media.stream) return null;
-
-			if (videoInfo.media.stream.h264 && videoInfo.media.stream.h264.length > 0) {
-				return videoInfo.media.stream.h264[0].masterUrl || null;
-			}
-			if (videoInfo.media.stream.h265 && videoInfo.media.stream.h265.length > 0) {
-				return videoInfo.media.stream.h265[0].masterUrl || null;
-			}
-			return null;
-		} catch (e) {
-			console.log(`Failed to parse video URL: ${e.message}`);
-			return null;
+	// Pick a playback url for one encoding of a stream. masterUrl carries a signature that
+	// expires within days, while the backup urls address the same file unsigned, so prefer
+	// those and keep masterUrl only as a fallback.
+	streamUrl(encoding: any): string | null {
+		const backups = Array.isArray(encoding.backupUrls) ? encoding.backupUrls : [];
+		for (const backup of backups) {
+			if (typeof backup === "string" && backup.length > 0) return backup;
 		}
+		return encoding.masterUrl || null;
+	}
+
+	// Extract video URL from note data, h264 first for the widest playback support
+	extractVideoUrl(html: string): string | null {
+		const note = this.noteData(html);
+		if (!note || !note.video || !note.video.media || !note.video.media.stream) return null;
+
+		const stream = note.video.media.stream;
+		for (const codec of ["h264", "h265", "h266", "av1"]) {
+			const encodings = stream[codec];
+			if (!Array.isArray(encodings)) continue;
+
+			for (const encoding of encodings) {
+				const url = this.streamUrl(encoding);
+				if (url) return url;
+			}
+		}
+		return null;
 	}
 
 	// Extract note content from HTML or JSON
