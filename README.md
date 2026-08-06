@@ -1,6 +1,6 @@
 # Xiaohongshu Clipper for Obsidian
 
-**Version**: 0.0.1  
+**Version**: 0.0.5  
 **Repository**: [https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **License**: MIT
 
@@ -11,6 +11,8 @@ A fork of [Xiaohongshu Importer](https://github.com/bnchiang96/xiaohongshu-impor
 ## Network use
 
 This plugin reads note pages directly from `xiaohongshu.com`. Importing a note fetches its public web page and parses the data Xiaohongshu embeds in it — there is no official API involved, and no request is signed or authenticated. If you enable media download, images and videos are additionally fetched from Xiaohongshu's CDN hosts. Nothing is sent anywhere else, and the plugin collects no telemetry.
+
+If you do not enable media download, imported notes reference images on Xiaohongshu's CDN, so opening such a note asks that CDN for the images. Enable media download if you would rather your vault not talk to Xiaohongshu after the import.
 
 Because the plugin depends on the page structure Xiaohongshu serves to anonymous visitors, imports can break without warning if that changes.
 
@@ -23,9 +25,11 @@ The plugin supports multiple Xiaohongshu link formats, including newer `explore`
 ## Features
 
 - **Import Xiaohongshu Notes**: Import notes by pasting a share link or share text (supports both `discovery/item` and `explore` URLs), including title, content, images, videos, and tags.
-- **Batch Import**: Paste several links at once. Every link found is imported, in the order it appears in the text, and one failed note does not abort the rest.
+- **Batch Import**: Paste several links at once. Every link found is imported, in the order it appears in the text. One failed note does not abort the rest, and a note already in the vault is skipped rather than re-imported.
+- **Metadata**: Records the author, their profile link, the publish date, and the posting location in the note's frontmatter.
+- **Durable Image Links**: The image urls embedded in a Xiaohongshu page expire within about a day. Images are referenced by their CDN file id instead, so notes keep working even without downloading media.
 - **Category Management**: Organize notes into user-defined categories (e.g., "Travel", "Food") or a default "Others" category.
-- **Media Download**: Optionally download images and videos locally to your vault, or embed them using their original URLs.
+- **Media Download**: Optionally download images and videos locally to your vault, or embed them using durable URLs.
 - **Custom Folder Structure**: Save notes in a structured folder hierarchy (e.g., `XHS Notes/Travel/NoteTitle.md`).
 - **User-Friendly Interface**: Use a modal to input share text, select categories, and choose media download options.
 - **Settings Customization**: Configure the default folder, media download preference, and manage categories in the settings tab.
@@ -73,7 +77,7 @@ This fork is not in the Obsidian Community Plugins marketplace, so install it wi
 6. **View the Notes**:
    - The plugin creates a Markdown file per note in your vault (e.g., `XHS Notes/Travel/NoteTitle.md`).
    - A single import opens the note automatically and confirms with "Imported Xiaohongshu note as XHS Notes/Travel/NoteTitle.md".
-   - A batch shows progress as it goes and finishes with a summary, such as "Imported 5 Xiaohongshu notes; 2 failed (see console for details)". A note that fails does not stop the ones after it.
+   - A batch shows progress as it goes and finishes with a summary, such as "Imported 5 Xiaohongshu notes; 1 already in the vault; 2 failed (see console for details)". A note that fails does not stop the ones after it, and a note already in the vault is skipped before any media is fetched.
 
 ### Configuring the Plugin
 
@@ -95,24 +99,36 @@ This fork is not in the Obsidian Community Plugins marketplace, so install it wi
 - Each note includes frontmatter with metadata:
   ```yaml
   ---
-  title: My Trip to Bali
-  source: http://xhslink.com/a/...
-  date: 2025-04-02
-  Imported At: 2025-04-02 10:30:45
-  category: Travel
+  title: "🐻夏天看熊吃三文鱼愿望达成！"
+  source: http://xhslink.cn/o/AQX2ka4QaBc
+  author: "ingridchu"
+  author_url: https://www.xiaohongshu.com/user/profile/58a7a81582ec391b58364e64
+  posted: 2026-07-08 23:22
+  location: "美国"
+  date: 2026-08-06
+  Imported At: 8/5/2026, 11:24:17 PM
+  category: "旅行"
   ---
   ```
+  - `posted` is when the note was published, in local time. `date` and `Imported At` record when you imported it.
+  - `location` is the posting location Xiaohongshu shows on the note.
+  - `author`, `author_url`, `posted` and `location` are omitted when the note data does not carry them.
+- The note's topics are written as Obsidian tags at the end of the file, taken from Xiaohongshu's own tag list.
 
 ## Troubleshooting
 
 - **"No valid Xiaohongshu URL found in the text"**:
-	- Ensure you’ve pasted a valid Xiaohongshu share link or text containing a URL (including `http://xhslink.com/a/...`, `discovery/item`, or `explore` URLs).
+	- Ensure you’ve pasted a valid Xiaohongshu share link or text containing a URL. Both `xhslink.com` and `xhslink.cn` short links are recognized, as are `discovery/item` and `explore` URLs.
 - **"Failed to import note"**:
 	- Check your internet connection and ensure the URL is accessible.
 	- Verify that the note is public and not restricted.
+	- Share links carry an access token that expires. If a link has been sitting around for a while, copy a fresh one from the app.
+- **"Note is already in the vault; skipped"**:
+	- A note whose title already exists in the target category is not imported again. Delete or rename the existing note to re-import it.
 - **Media not downloading**:
 	- Ensure the "Download media" option is enabled in the modal or settings.
 	- Check for network issues or restrictions on the media URLs.
+	- A media file that fails to download falls back to its URL in the Markdown, so the note is still created.
 - **Layout issues in the modal**:
 	- Ensure your Obsidian theme is compatible. The plugin uses standard Obsidian styling, but custom themes may require adjustments.
 
@@ -172,7 +188,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 # 小红书剪藏 for Obsidian <a id="chinese-readme"></a>
 
-**版本**：0.0.1  
+**版本**：0.0.5  
 **代码仓库**：[https://github.com/yuliwilliam/xiaohongshu-clipper](https://github.com/yuliwilliam/xiaohongshu-clipper)  
 **许可证**：MIT
 
@@ -181,6 +197,8 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 ## 联网说明
 
 本插件直接从 `xiaohongshu.com` 读取笔记页面。导入一篇笔记时，会抓取该笔记的公开网页并解析小红书内嵌在页面中的数据——不经过任何官方 API，请求也不带签名或身份认证。如果启用了媒体下载，还会额外从小红书的 CDN 抓取图片和视频。除此之外不向任何地方发送数据，插件不收集任何遥测信息。
+
+如果不启用媒体下载，导入的笔记中引用的是小红书 CDN 上的图片，因此每次打开这类笔记都会向该 CDN 请求图片。如果你不希望导入之后知识库仍与小红书通信，请启用媒体下载。
 
 由于依赖的是小红书返回给匿名访客的页面结构，一旦对方改动，导入可能随时失效。
 
@@ -191,9 +209,11 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 ## 功能
 
 - **导入小红书笔记**：通过粘贴分享链接或分享文本，导入笔记，包括标题、内容、图片、视频和标签。
-- **批量导入**：一次可粘贴多条链接，按其在文本中出现的顺序逐条导入，其中一条失败不会中断后面的。
+- **批量导入**：一次可粘贴多条链接，按其在文本中出现的顺序逐条导入。其中一条失败不会中断后面的，已存在于知识库的笔记会跳过而非重复导入。
+- **元数据**：在笔记的 frontmatter 中记录作者、作者主页链接、发布时间和 IP 归属地。
+- **图片链接不过期**：小红书页面里内嵌的图片 URL 约一天后失效。插件改用图片的 CDN file id 构造引用，因此即使不下载媒体，笔记里的图片也不会变成裂图。
 - **分类管理**：将笔记组织到用户自定义的分类中（例如“旅行”、“美食”），或使用默认的“其他”分类。
-- **媒体下载**：可选择将图片和视频下载到本地知识库，或使用原始 URL 嵌入媒体。
+- **媒体下载**：可选择将图片和视频下载到本地知识库，或使用不过期的 URL 嵌入媒体。
 - **自定义文件夹结构**：将笔记保存到结构化的文件夹层次中（例如 `XHS Notes/Travel/NoteTitle.md`）。
 - **用户友好的界面**：通过弹窗输入分享文本、选择分类和媒体下载选项。
 - **设置自定义**：在设置页面中配置默认文件夹、媒体下载偏好和分类管理。
@@ -241,7 +261,7 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 6. **查看笔记**：
 	- 插件会为每篇笔记在知识库中创建一个 Markdown 文件（例如 `XHS Notes/Travel/NoteTitle.md`）。
 	- 单条导入会自动打开该笔记，并提示 "Imported Xiaohongshu note as XHS Notes/Travel/NoteTitle.md"。
-	- 批量导入会显示进度，结束时给出汇总，例如 "Imported 5 Xiaohongshu notes; 2 failed (see console for details)"。其中一条失败不会影响后面的。
+	- 批量导入会显示进度，结束时给出汇总，例如 "Imported 5 Xiaohongshu notes; 1 already in the vault; 2 failed (see console for details)"。其中一条失败不会影响后面的；已存在的笔记会在抓取媒体之前就跳过。
 
 ### 配置插件
 
@@ -263,24 +283,36 @@ This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 - 每个笔记包含带有元数据的 frontmatter：
   ```yaml
   ---
-  title: My Trip to Bali
-  source: http://xhslink.com/a/...
-  date: 2025-04-02
-  Imported At: 2025-04-02 10:30:45
-  category: Travel
+  title: "🐻夏天看熊吃三文鱼愿望达成！"
+  source: http://xhslink.cn/o/AQX2ka4QaBc
+  author: "ingridchu"
+  author_url: https://www.xiaohongshu.com/user/profile/58a7a81582ec391b58364e64
+  posted: 2026-07-08 23:22
+  location: "美国"
+  date: 2026-08-06
+  Imported At: 8/5/2026, 11:24:17 PM
+  category: "旅行"
   ---
   ```
+  - `posted` 是笔记的发布时间（本地时区）；`date` 和 `Imported At` 记录的是你导入的时间。
+  - `location` 是小红书在笔记上显示的 IP 归属地。
+  - `author`、`author_url`、`posted`、`location` 在笔记数据中缺失时会整行省略。
+- 笔记的话题会写在文件末尾作为 Obsidian 标签，取自小红书自己的话题列表。
 
 ## 故障排除
 
 - **“文本中未找到有效的小红书 URL”**：
-	- 确保您粘贴了一个有效的小红书分享链接或包含 URL 的文本（包括 `http://xhslink.com/a/...`、`discovery/item` 或 `explore` URL）。
+	- 确保您粘贴了一个有效的小红书分享链接或包含 URL 的文本。`xhslink.com` 和 `xhslink.cn` 两种短链都支持，`discovery/item` 和 `explore` 网页链接也支持。
 - **“无法导入笔记”**：
 	- 检查您的网络连接并确保 URL 可访问。
 	- 确认笔记是公开的且未受限制。
+	- 分享链接中带有会过期的访问票据。如果链接放置了一段时间，请从 App 重新复制一份。
+- **提示“Note is already in the vault; skipped”**：
+	- 目标分类下已存在同名笔记时不会重复导入。需要重新导入请先删除或重命名已有的笔记。
 - **媒体未下载**：
 	- 确保在弹窗或设置中启用了“下载媒体”选项。
 	- 检查网络问题或媒体 URL 的限制。
+	- 单个媒体文件下载失败时会回退为在 Markdown 中引用其 URL，笔记仍会正常创建。
 - **弹窗中的布局问题**：
 	- 确保您的 Obsidian 主题兼容。插件使用标准的 Obsidian 样式，但自定义主题可能需要调整。
 
